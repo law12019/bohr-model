@@ -1,0 +1,233 @@
+<!DOCTYPE html> 
+<html> 
+
+<head>
+  <meta charset="utf-8" />
+  <title>Sodium</title>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.9.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
+
+  <style>
+  h1 {
+    font-size:100px;
+    margin-top:0;
+    margin-bottom:0;
+  }
+  .center {  
+    margin-left:auto;
+    margin-right:auto;
+    position:relative;
+  }
+  .prev {  
+    position:absolute;
+    bottom: 30px;
+    left: 30px;
+    font-size:30px;
+  }
+  .next {  
+    position:absolute;
+    bottom: 30px;
+    right: 30px;
+    font-size:30px;
+  }
+  </style>
+  <script> 
+
+var SCALE = 2;
+var WIDTH = 1000;
+var HEIGHT = 800;
+var CENTER_X = WIDTH / 2;
+var CENTER_Y = HEIGHT / 2;
+
+var PARTICLES = [];
+var NUCLEUS_RADIUS = 15.0*SCALE;
+var NUCLEUS_RADIUS_2 = NUCLEUS_RADIUS * NUCLEUS_RADIUS;
+var CONTEXT;
+
+function initialize(numNeutrons, numProtons)
+{
+  var canvas = document.getElementById('myCanvas');
+  CONTEXT = canvas.getContext('2d');
+
+  while (numNeutrons > 0 && numProtons > 0) {
+    if (numNeutrons > 0) {
+      numNeutrons -= 1;
+      var particle = {}
+      particle.x = (2 * Math.random() - 1)* NUCLEUS_RADIUS;
+      particle.y = (2 * Math.random() - 1)* NUCLEUS_RADIUS;
+      particle.distance2 = (particle.x * particle.x) + (particle.y * particle.y);
+      particle.color = '#FE0';
+      particle.radius = 7.0*SCALE;
+      PARTICLES.push(particle);
+    }
+  if (numProtons > 0) {
+      numProtons -= 1;
+      var particle = {}
+      particle.x = (2 * Math.random() - 1)* NUCLEUS_RADIUS;
+      particle.y = (2 * Math.random() - 1)* NUCLEUS_RADIUS;
+      particle.color = '#F00';
+      particle.radius = 7.0*SCALE;
+      PARTICLES.push(particle);
+    }
+  }
+}
+
+function drawNucleus()
+{
+  for (var i = 0; i < PARTICLES.length; ++i) {
+    particle = PARTICLES[i];
+    // Draw the particle
+    var x = particle.x+CENTER_X;
+    var y = particle.y+CENTER_Y;
+    CONTEXT.beginPath();
+    CONTEXT.arc(x, y, particle.radius, 0, 2 * Math.PI, false);
+
+    var grd=CONTEXT.createRadialGradient(x,y,2*SCALE,x,y,12*SCALE);
+    grd.addColorStop(0, particle.color);
+    grd.addColorStop(1,"black");
+    CONTEXT.fillStyle = grd;
+    CONTEXT.fill();
+    CONTEXT.lineWidth = 1;
+    CONTEXT.strokeStyle = '#003300';
+    CONTEXT.stroke();
+
+    // Move the particle.
+    var x = particle.x + (Math.random() * 2 - 1);
+    var y = particle.y + (Math.random() * 2 - 1);
+    var distance2 = (x*x) + (y*y);
+    // Keep the particle in the nucleus radius
+    if (distance2 < NUCLEUS_RADIUS_2 || distance2 < particle.distance2) {
+      particle.x = x;
+      particle.y = y;
+      particle.distance2 = distance2;
+    } else {
+      if (i > 0) {
+        // Change order occasionally 
+        PARTICLES[i] = PARTICLES[i-1];
+        PARTICLES[i-1] = particle;
+      }
+    }
+  }
+}  
+
+
+function drawShell(phase, numElectrons, radius)
+{
+  CONTEXT.beginPath();
+  CONTEXT.arc(CENTER_X, CENTER_Y, radius, 0, 2 * Math.PI, false);
+  CONTEXT.lineWidth = 1;
+  CONTEXT.strokeStyle = '#003300';
+  CONTEXT.stroke();
+
+  for (var i = 0; i < numElectrons; ++i) {
+    var angle = phase + i * 2 * Math.PI / numElectrons;
+    var x = Math.cos(angle)*radius + CENTER_X;
+    var y = Math.sin(angle)*radius + CENTER_Y;
+    CONTEXT.beginPath();
+    CONTEXT.arc(x, y, 10*SCALE, 0, 2 * Math.PI, false);
+
+    var grd=CONTEXT.createRadialGradient(x,y,2*SCALE,x,y,20*SCALE);
+    grd.addColorStop(0,'#55F');
+    grd.addColorStop(1,"black");
+    CONTEXT.fillStyle = grd;
+    CONTEXT.fill();
+    CONTEXT.lineWidth = 1;
+    CONTEXT.strokeStyle = '#003300';
+    CONTEXT.stroke();
+  }
+} 
+
+var VALANCE_MASK = 0;
+var VALANCE_MASK_COLOR;
+function drawValence(radius)
+{
+  VALANCE_MASK -= 0.025;
+  if (VALANCE_MASK < 0) { 
+    VALANCE_MASK += 2* Math.PI;
+  }
+  var alpha = (Math.sin(VALANCE_MASK) * 10.0) - 6.0;
+  if (alpha < 0.0) { alpha = 0.0; }
+  if (alpha > 1.0) { alpha = 1.0; }
+
+  CONTEXT.beginPath();
+  CONTEXT.globalAlpha = alpha;
+  CONTEXT.arc(CENTER_X, CENTER_Y, radius, 0, 2 * Math.PI, false);
+  CONTEXT.fillStyle = '#999';
+  CONTEXT.fill();
+  CONTEXT.globalAlpha = 1.0;
+
+  if (alpha > 0.5) {
+    CONTEXT.beginPath();
+    CONTEXT.font="40px Georgia";
+    CONTEXT.fillStyle = '#44F';
+    CONTEXT.fillText("Valence Electron",CENTER_X-150,CENTER_Y+(190*SCALE));
+  }  
+}
+
+var SHELLS = [0.0,0.0,0.0];
+function draw() {
+  CONTEXT.clearRect(0, 0, WIDTH, HEIGHT);
+  drawNucleus();
+  
+  drawShell(SHELLS[0], 2, 70*SCALE);
+  SHELLS[0] += 0.05;
+  if (SHELLS[0] > 2* Math.PI) { 
+    SHELLS[0] -= 2* Math.PI;
+  }    
+
+  drawShell(SHELLS[1], 8, 110*SCALE);
+  SHELLS[1] -= 0.02;
+  if (SHELLS[1] < 0) { 
+    SHELLS[1] += 2* Math.PI;
+  }    
+
+  drawShell(SHELLS[2], 1, 150*SCALE);
+  SHELLS[2] += 0.008;
+  if (SHELLS[2] > 2* Math.PI) { 
+    SHELLS[2] -= 2* Math.PI;
+  }  
+  
+  drawValence(125*SCALE);
+
+  CONTEXT.beginPath();
+  CONTEXT.font="40px Georgia";
+  CONTEXT.fillStyle = "#080";
+  CONTEXT.fillText("Sodium Atom: Na",CENTER_X-160,CENTER_Y-(170*SCALE));
+}
+
+
+
+function animate() {
+  draw();
+  var timerId = setTimeout(function(){animate();}, 50); // 10 frames per second
+}
+
+$( document ).ready(function() {
+  initialize(12, 11);
+  animate();
+});
+
+</script> 
+
+</head>
+
+
+<body> 
+  <h1 class="center" style="width:860px"> The Bohr Diagram! </h1>
+  <div class='center' style="width:1000px">
+    <canvas id="myCanvas" width="1000" height="800" style="border:1px solid #d3d3d3;">
+    Your browser does not support the HTML5 canvas tag.
+    </canvas>
+  </div>
+  
+  <div class="prev">
+    <a href="index.html">Previous</a>
+  </div>
+  <div class="next">
+    <a href="page2.html">Next</a>
+  </div>
+</body> 
+
+
+</html>
